@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.log
+*.db
+*.yaml
+*.pid
+
+*.jpg
+*.png
+
+wsgi.py
+config/*.py
+
+

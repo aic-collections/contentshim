@@ -1,0 +1,35 @@
+app_base_path: /path/to/application/DIR/
+
+sqlite: 
+    db: data/etagsdb.db
+    schema: config/etagsdb.schema
+    
+httpresolver:
+    comment: "Whence the binary is fetched. Fedora."
+    prefix: http://localhost:8080/rest
+    postfix: ''
+    
+cache:
+    basedir: data/cache
+    
+iipimage:
+    comment: "Path to IIPImage server.  This is the redirect base."
+    base: https://lakeimagesweb-test.artic.edu/iiif/?IIIF=
+    
+logging:
+    version: 1
+    formatters:
+        defaultFormatter:
+            format: '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d - %(message)s'
+    handlers:
+        defaultHandler:
+            class: logging.handlers.RotatingFileHandler
+            level: DEBUG
+            formatter: defaultFormatter
+            filename: /path/to/log/file.log
+            maxBytes: 1000000
+            backupCount: 3
+    root:
+        level: DEBUG
+        handlers: [defaultHandler]
+    

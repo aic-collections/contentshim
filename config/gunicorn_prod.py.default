@@ -1,0 +1,16 @@
+# See: http://docs.gunicorn.org/en/stable/settings.html
+
+bind = "0.0.0.0:8000"
+workers = 4
+threads = 2
+max_requests = 1000
+
+#user = "user"
+#group = "group"
+
+chdir = "/path/to/application/DIR/"
+daemon = True
+pidfile = chdir + "tmp/gunicorn-server.pid"
+
+accesslog = chdir + "data/log/gunicorn-access.log"
+errorlog = chdir + "data/log/gunicorn-error.log"

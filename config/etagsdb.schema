@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS etags;
+
+CREATE TABLE etags (
+    id INTEGER PRIMARY KEY,
+    fcrepoid CHAR(40),
+    etag CHAR(50)
+);
