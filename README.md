@@ -14,7 +14,9 @@ At this point you will need to modify at least one file to get going:
 ~~~bash
 cp config/local.yaml.default config/local.yaml
 ~~~
-Open the file for editing and make changes as needed.
+Open the file for editing and make changes as needed.  Minimally, 
+the `app_base_path` base value will have to be changed.  Check the 
+fedora HTTP path.  The remaining should be OK to get going.
 
 You can now start the Content Shim:
 
@@ -27,7 +29,7 @@ You can now start the Content Shim:
 Once the server is running you will need to initialize the database.  The Content
 Shim uses `sqlite`.  While this solution may not seem robust enough, bear in mind 
 that there is a single table of all of three columns.  It works rather spendlidly 
-for a major art museum website; perhaps you have more images to serve.
+for a major art museum website; perhaps you have more images to serve. YMMV.
 
 ~~~bash
 curl -i -X GET http://host:port/initdb
