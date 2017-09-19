@@ -1,3 +1,21 @@
+# About
+
+The Content Shim is used primarily to fetch binary content - images, in 
+this case - from a [Fedora Repository](https://github.com/fcrepo4/fcrepo4) 
+and save that content to local disk.  After fetching the Fedora binary,
+the Content Shim can respond with the full file path or the 
+content itself, though it is designed principally with the former action in 
+mind.  In this way, the Content Shim can be integrated with an image server, 
+such as [Cantaloupe](https://github.com/medusa-project/cantaloupe), that 
+accepts an image identifier (or partial path) as part of a request but which then
+needs to learn of the image's true location on disk.
+
+Features include:
+- Etag caching and checking (via Fedora's support for the `IF-NONE-MATCH`
+HTTP header)
+- Fetched content stored indefinitely on disk (no need to re-fetch Fedora
+content, unless the `IF-NONE-MATCH` test evaluates to True)
+
 # Getting Started
 
 ~~~bash
