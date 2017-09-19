@@ -26,7 +26,7 @@ logging:
             class: logging.handlers.RotatingFileHandler
             level: DEBUG
             formatter: defaultFormatter
-            filename: /path/to/log/file.log
+            filename: ../data/log/contentshim.log
             maxBytes: 1000000
             backupCount: 3
     root:
