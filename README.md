@@ -28,8 +28,8 @@ You can now start the Content Shim:
 
 Once the server is running you will need to initialize the database.  The Content
 Shim uses `sqlite`.  While this solution may not seem robust enough, bear in mind 
-that there is a single table of all of three columns.  It works rather spendlidly 
-for a major art museum website; perhaps you have more images to serve. YMMV.
+that there is a single table of all of three columns.  It works rather spendidly 
+for a major US art museum's website; perhaps you have more images to serve. YMMV.
 
 ~~~bash
 curl -i -X GET http://host:port/initdb
