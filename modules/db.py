@@ -39,6 +39,5 @@ class DB:
         self._db.commit()
         id = call.lastrowid
         call.close()
-        print(str(id))
         return id
     
