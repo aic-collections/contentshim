@@ -37,14 +37,14 @@ def init_db():
 
 # 91e8c8fe-56f4-4c1d-b296-614f870fda35        
 # 2096bf7b-be87-b20c-1268-0d2c3324e402
-@app.route("/images/<fcrepo_id>")
-def get_image(fcrepo_id):
+@app.route("/<any(assets, images):delim>/<fcrepo_id>")
+def get_asset(fcrepo_id, delim=''):
     with app.app_context():
         content = Content(app, config, fcrepo_id)
         return content.get()
-        
-@app.route("/images/<fcrepo_id>/fspath")
-def get_fs_path(fcrepo_id):
+
+@app.route("/<any(assets, images):delim>/<fcrepo_id>/fspath")
+def get_fs_path(fcrepo_id, delim=''):
     with app.app_context():
         content = Content(app, config, fcrepo_id)
         fs_path = content.get_fs_path()
@@ -52,6 +52,10 @@ def get_fs_path(fcrepo_id):
             response = Response("404 Not Found")
             response.headers['Content-type'] = "text/plain"
             return (response, 404)
+        elif fs_path == "Status503":
+            response = Response("503 - Service Temporarily Unavailable.  LPM Fedora issue.")
+            response.headers['Content-type'] = "text/plain"
+            return (response, 503)
         else:
             response = Response(fs_path)
             response.headers['Content-type'] = "text/plain"
@@ -89,10 +93,13 @@ def iipimage_redirect(iiif_uri):
                 response = Response("404 Not Found")
                 response.headers['Content-type'] = "text/plain"
                 return (response, 404)
+            elif fs_path == "Status503":
+                response = Response("503 - Service Temporarily Unavailable.  LPM Fedora issue.")
+                response.headers['Content-type'] = "text/plain"
+                return (response, 503)
             else:
                 redirect_to = config["iipimage"]["base"] + redirect_path + '/' + uri_ending
                 return redirect(redirect_to, 302)
-
 
 @app.route("/etags")
 def etags():
@@ -147,5 +154,5 @@ if __name__ == "__main__":
     logger = getLogger(__name__)
 
     logger.info("Application loaded using config: {}".format(config))
-    app.run(debug=True, host="0.0.0.0", port=5151)
+    app.run(debug=True, host="0.0.0.0", port=8000)
 
