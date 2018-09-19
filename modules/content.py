@@ -22,12 +22,25 @@ class Content:
     
     etag_exists = False
     content_type_extension_map = {
+            "image/jp2": "jp2",
+            "image/tiff": "tif",
+            "image/tif": "tif",
+            
+            "audio/mpeg": "mp3",
+            "audio/x-wave": "wav",
+            
+            "text/plain": "txt",
+            "application/pdf": "pdf",	
+            
+            "video/mp4": "mp4",
+            "video/mpeg": "mpeg",
+            "video/quicktime": "mov",
+            "video/x-flv": "flv",
+            "application/x-shockwave-flash": "swf",
+            
             "image/jpeg": "jpg",
             "image/png": "png",
             "image/gif": "gif",
-            "image/tif": "tif",
-            "image/tiff": "tif",
-            "image/jp2": "jp2",
         }
     extension = ""
     contenttype = ""
@@ -38,6 +51,7 @@ class Content:
         self.app = app
         self.config = config
         self.fcrepo_id = fcrepo_id
+        self.session = requests.Session()
         if self._valid_fcrepo_id(fcrepo_id):
             self.fcrepo_path = fcrepo_path_from_hash(fcrepo_id)
         else:
@@ -76,23 +90,34 @@ class Content:
         if etag:
             headers["If-None-Match"] = etag
 
-        cache_req = requests.head(self.url, headers=headers)
+        cache_req = self.session.head(self.url, headers=headers)
         self.logger.debug('ETag cache response code: {}'.format(cache_req.status_code))
         self.logger.debug("cache_req headers: {}".format(cache_req.headers))
-        self._set_extension_contenttype(cache_req.headers)
         
         if cache_req.status_code == 304:
             self.logger.debug('Status was 304.  Looking for cached file.')
             cache_fs_path = self.config["cache"]["basedir"] + self.fcrepo_path + "." + self.extension
             
             # ABSOLUTE NECESSITY
-            file_matches = glob.glob(cache_fs_path + "*")
+            file_matches = glob.glob(cache_fs_path + "[0-9a-zA-Z]*")
             if len(file_matches) > 0:
                 cached_file_path = file_matches[0]
+                if '.' in cached_file_path:
+                    self.extension = cached_file_path.split('.')[-1]
+                    for key, value in self.content_type_extension_map.items():
+                        if value == self.extension:
+                            self.extension = value
+                            self.contenttype = key
+                            break
+                if self.extension == "":
+                    self.extension = "jp2"
+                    self.contenttype = "image/jp2"
             else:
                 cached_file_path = self._copy_to_cache(cache_req.headers)
         elif cache_req.status_code == 404:
             cached_file_path = "Status404"
+        elif cache_req.status_code == 503:
+            cached_file_path = "Status503"
         else:
             cached_file_path = self._copy_to_cache(cache_req.headers)
         
@@ -104,7 +129,6 @@ class Content:
         fs_path = self.get_fs_path()
         redirect_file = fs_path.replace(self.config["cache"]["basedir"], '')
         return redirect_file
-        
 
 
     def _set_extension_contenttype(self, cache_req_headers):
@@ -114,17 +138,17 @@ class Content:
                     self.extension = value
                     self.contenttype = key
                     break
-        else:
-            # Lovely.  
-            # lakemichigan is using fcrepo 4.7.1, which delivers different
-            # headers of a HEAD request.  4.7.3 returns the content-type;
-            # 4.7.1 does not.
-            self.extension = 'jp2'
-            self.contenttype = 'image/jp2'
         return
 
 
     def _copy_to_cache(self, cache_req_headers):
+        
+        if "content-type" in cache_req_headers:
+            self._set_extension_contenttype(cache_req_headers)
+        else:
+            contenthead = self.session.head(self.url)
+            self._set_extension_contenttype(contenthead.headers)
+            
         self.logger.debug("Copying to cache.")
         ident = self.fcrepo_id
         # Will take:
@@ -138,23 +162,27 @@ class Content:
         cache_fs_path = self.config["cache"]["basedir"] + self.fcrepo_path + "." + self.extension
         if os.path.isfile(cache_fs_path):
             os.unlink(cache_fs_path)
-            
-        r = requests.get(self.url, stream=True)
-        with open(cache_fs_path, 'wb') as f:
-            # Increase the chunk size.  Fewer disk writes.
-            for chunk in r.iter_content(10240):
-                f.write(chunk)
+        
+        # Mindful of this.  Requests.Session may require non-streamed content
+        # or the connection is not released back in to the pool.
+        with self.session.get(self.url, stream=True) as r:
+            with open(cache_fs_path, 'wb') as f:
+                # Increase the chunk size.  Fewer disk writes.
+                for chunk in r.iter_content(10240):
+                    f.write(chunk)
+            # Store ETags.
+            self._etag_put(r.headers['etag'])
 
         '''
         # This code didn't seem to improve matters and, in fact, the memory hit 
         # may have resulted in diminished service.
         # Curious about fewer disk writes.
-        r = requests.get(self.url)
+        r = self.session.get(self.url)
         with open(cache_fs_path, 'wb') as f: 
             f.write(r.content)
         '''
         # Store ETags.
-        self._etag_put(r.headers['etag'])
+        # self._etag_put(r.headers['etag'])
 
         return cache_fs_path
         
