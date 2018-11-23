@@ -88,7 +88,7 @@ Specifically, our custom FileSystemResolver looks like the following:
     # @return [String,nil] Absolute pathname of the image corresponding to the
     #                      given identifier, or nil if not found.
     #
-    def self.get_pathname(identifier)
+    def self.get_pathname(identifier, context)
         uri = 'http://localhost:8000/images/' + CGI.escape(identifier) + '/fspath'
         uri = URI.parse(uri)
 
