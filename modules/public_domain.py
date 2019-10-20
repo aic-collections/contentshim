@@ -61,7 +61,7 @@ class PublicDomain:
     def get_pd_status(self):
         self.logger.debug("Fetching stored public_domain status for: {}".format(self.fcrepo_id))
         
-        if self._valid_fcrepo_id(fcrepo_id):
+        if self._valid_fcrepo_id(self.fcrepo_id):
             pd_status = self._pd_desg_get()
             self.logger.debug("Returning public_domain status {} for {}".format(pd_status, self.fcrepo_id))
             if str(pd_status) == "Status503" or str(pd_status) == "Status404":
