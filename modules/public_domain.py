@@ -27,6 +27,11 @@ class PublicDomain:
         self.config = config
         self.fcrepo_id = fcrepo_id
         self.session = requests.Session()
+        if "enviro" not in config:
+            self.session.proxies = {
+                "http": "http://sysprox.artic.edu:3128",
+                "https": "http://sysprox.artic.edu:3128",
+            }
         if self._valid_fcrepo_id(fcrepo_id):
             self.dhurl = "http://aggregator-data.artic.edu/api/v1/artworks/search?cache=false&query[bool][should][][term][image_id]=" + self.fcrepo_id + "&query[bool][should][][term][alt_image_ids]=" + self.fcrepo_id + "&fields=is_public_domain,id,is_zoomable,max_zoom_window_size,api_link,title,artist_display"
         self._db = DB(app, config["sqlite"]["db"])
@@ -55,16 +60,16 @@ class PublicDomain:
 
     def get_pd_status(self):
         self.logger.debug("Fetching stored public_domain status for: {}".format(self.fcrepo_id))
-        if self._valid_fcrepo_id(self.fcrepo_id):
+        
+        if self._valid_fcrepo_id(fcrepo_id):
             pd_status = self._pd_desg_get()
             self.logger.debug("Returning public_domain status {} for {}".format(pd_status, self.fcrepo_id))
-            if str(pd_status) == "Status503":
+            if str(pd_status) == "Status503" or str(pd_status) == "Status404":
                 return pd_status
             else:
                 return '{ "is_public_domain": ' + str(pd_status).lower() +' }'
         else:
             return "Status404"
-
 
     def _pd_desg_get(self):
         
@@ -78,22 +83,24 @@ class PublicDomain:
             if str(pd_desgs[0][0]) == "1":
                 self.is_public_domain = True
         else:
-            # Must look it up in the datahub
-            self.logger.debug("No DB entry found for {}.".format(self.fcrepo_id))
-            self.logger.debug("Checking datahub for {}.".format(self.fcrepo_id))
-            try:
-                dhresponse = requests.get(self.dhurl)
-                dhdata = dhresponse.json()
-                if ( len(dhdata["data"]) > 0 ):
-                    if (dhdata["data"][0]["is_public_domain"]):
+            # Must look it up in the datahub, but first we'll make sure it is in lakemichigan
+            if self._content_in_fcrepo(self.fcrepo_id):
+                self.logger.debug("No DB entry found for {}.".format(self.fcrepo_id))
+                self.logger.debug("Checking datahub for {}.".format(self.fcrepo_id))
+                try:
+                    dhresponse = self.session.get(self.dhurl)
+                    dhdata = dhresponse.json()
+                    if ( len(dhdata["data"]) > 0 ):
+                        if (dhdata["data"][0]["is_public_domain"]):
+                            self.is_public_domain = True
+                    else:
+                        self.logger.debug("Datahub does not know about {}. Public_domain is true as this may be an Interpretive Resource.".format(self.fcrepo_id))
                         self.is_public_domain = True
-                else:
-                    self.logger.debug("Datahub does not know about {}. Public_domain is true as this may be an Interpretive Resource.".format(self.fcrepo_id))
-                    self.is_public_domain = True
-                self._pd_desg_put()
-            except:
-                return "Status503"
-        
+                    self._pd_desg_put()
+                except:
+                    return "Status503"
+            else:
+                return "Status404"
         return self.is_public_domain
 
 
@@ -114,8 +121,25 @@ class PublicDomain:
         return True
 
 
+    def _content_in_fcrepo(self, fcrepo_id):
+        fcrepo_path = fcrepo_path_from_hash(fcrepo_id)
+        fcrepo_url = self.config["httpresolver"]["prefix"] + fcrepo_path + self.config["httpresolver"]["postfix"]
+        fcrepo_hit = self.session.head(fcrepo_url)
+        if fcrepo_hit.status_code == 200:
+            return True
+        return False
+
+
     def _valid_fcrepo_id(self, fcrepo_id):
         regex = re.compile('^[a-z0-9]{8}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{12}$', re.I)
         match = regex.match(fcrepo_id)
-        return bool(match)
+        if bool(match):
+            fcrepo_path = fcrepo_path_from_hash(fcrepo_id)
+            fcrepo_url = self.config["httpresolver"]["prefix"] + fcrepo_path + self.config["httpresolver"]["postfix"]
+            fcrepo_hit = self.session.head(fcrepo_url)
+            if fcrepo_hit.status_code == 200:
+                return True
+        return False
+        
+            
 
