@@ -20,20 +20,29 @@ sys.path.append(os.path.abspath('..'))
 
 from modules.db import DB
 from modules.content import Content
+from modules.public_domain import PublicDomain
 
 from modules.filters import fcrepo_path_from_hash
 
 app = Flask(__name__)
 config = None
 
-@app.route("/initdb")
-def init_db():
+@app.route("/<any(assets, images, public_domain):delim>/initdb")
+def init_db(delim=''):
     with app.app_context():
         db = DB(app, config["sqlite"]["db"])
-        if db.init_db(config["sqlite"]["schema"]):
-            return ('Database Created/Reset', 200)    
+        if delim == "public_domain":
+            if db.init_db(config["sqlite"]["pdschema"]):
+                return ('Database Created/Reset for public_domain info', 200)    
+            else:
+                return ("Something went horribly wrong for public_domain info", 500)    
+        elif delim == "assets" or delim == "images":
+            if db.init_db(config["sqlite"]["schema"]):
+                return ('Database Created/Reset for etag info', 200)    
+            else:
+                return ("Something went horribly wrong for etag info", 500)
         else:
-            return ("Something went horribly wrong", 500)
+            return ("Not Found", 404)
 
 # 91e8c8fe-56f4-4c1d-b296-614f870fda35        
 # 2096bf7b-be87-b20c-1268-0d2c3324e402
@@ -61,6 +70,25 @@ def get_fs_path(fcrepo_id, delim=''):
             response.headers['Content-type'] = "text/plain"
             return (response, 200)
             
+# https://nocache.aggregator-data-test.artic.edu/api/v1/artworks/search?cache=false&query[bool][should][][term][image_id]=0b41b9ee-de1f-025d-c9d3-064057ac141a&query[bool][should][][term][alt_image_ids]=0b41b9ee-de1f-025d-c9d3-064057ac141a
+@app.route("/<any(assets, images):delim>/<fcrepo_id>/public_domain")
+def get_pd_status(fcrepo_id, delim=''):
+    with app.app_context():
+        pd = PublicDomain(app, config, fcrepo_id)
+        pdstatus = pd.get_pd_status()
+        if pdstatus == "Status404":
+            response = Response("404 Not Found")
+            response.headers['Content-type'] = "text/plain"
+            return (response, 404)
+        elif pdstatus == "Status503":
+            response = Response("503 - Service Temporarily Unavailable.  Datahub issue?")
+            response.headers['Content-type'] = "text/plain"
+            return (response, 503)
+        else:
+            response = Response(pdstatus)
+            response.headers['Content-type'] = "application/json"
+            return (response, 200)
+
 @app.route("/redirect/iipimage/iiif/<path:iiif_uri>")
 def iipimage_redirect(iiif_uri):
     if iiif_uri.endswith("info.json"):
@@ -101,8 +129,8 @@ def iipimage_redirect(iiif_uri):
                 redirect_to = config["iipimage"]["base"] + redirect_path + '/' + uri_ending
                 return redirect(redirect_to, 302)
 
-@app.route("/etags")
-def etags():
+@app.route("/<any(assets, images):delim>/etags")
+def etags(delim=''):
     with app.app_context():
         db = DB(app, config["sqlite"]["db"])
         results = db.etags()
@@ -110,6 +138,21 @@ def etags():
             output = "id        fcrepo_id       etag\n"
             for i in results:
                 output += str(i[0]) + "     " + i[1] + "        " + i[2] + "\n"
+            response = Response(output)
+            response.headers['Content-type'] = "text/plain"
+            return (response, 200)
+        else:
+            return ("Results was None?", 500)
+            
+@app.route("/<any(assets, images):delim>/pd_statuses")
+def pd_statuses(delim=''):
+    with app.app_context():
+        db = DB(app, config["sqlite"]["db"])
+        results = db.pd_statuses()
+        if results != None:
+            output = "id        fcrepo_image_id       public_domain     last_checked\n"
+            for i in results:
+                output += str(i[0]) + "     " + i[1] + "        " + str(i[2]) + "        " + i[3] + "\n"
             response = Response(output)
             response.headers['Content-type'] = "text/plain"
             return (response, 200)
@@ -125,6 +168,9 @@ def load_app(configpath):
         
     if not config["sqlite"]["schema"].startswith('/'):
         config["sqlite"]["schema"] = config["app_base_path"] + config["sqlite"]["schema"]
+        
+    if not config["sqlite"]["pdschema"].startswith('/'):
+        config["sqlite"]["pdschema"] = config["app_base_path"] + config["sqlite"]["pdschema"]
         
     if not config["cache"]["basedir"].startswith('/'):
         config["cache"]["basedir"] = config["app_base_path"] + config["cache"]["basedir"]
@@ -145,6 +191,9 @@ if __name__ == "__main__":
         
     if not config["sqlite"]["schema"].startswith('/'):
         config["sqlite"]["schema"] = config["app_base_path"] + config["sqlite"]["schema"]
+        
+    if not config["sqlite"]["pdschema"].startswith('/'):
+        config["sqlite"]["pdschema"] = config["app_base_path"] + config["sqlite"]["pdschema"]
         
     if not config["cache"]["basedir"].startswith('/'):
         config["cache"]["basedir"] = config["app_base_path"] + config["cache"]["basedir"]

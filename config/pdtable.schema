@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS pd_designations;
+
+CREATE TABLE pd_designations (
+    id INTEGER PRIMARY KEY,
+    fcrepo_image_id CHAR(40),
+    public_domain INTEGER(1),
+    last_checked TEXT
+);

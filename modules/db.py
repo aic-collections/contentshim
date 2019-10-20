@@ -26,6 +26,13 @@ class DB:
         results = call.fetchall()
         call.close()
         return results if results else None
+        
+    def pd_statuses(self):
+        sqlquery = "SELECT * FROM pd_designations;"
+        call = self._db.execute(sqlquery)
+        results = call.fetchall()
+        call.close()
+        return results if results else None
             
     def query(self, sqlquery):
         call = self._db.execute(sqlquery)
