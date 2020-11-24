@@ -127,9 +127,6 @@ def load_app(configpath):
         
     if not config["sqlite"]["pdschema"].startswith('/'):
         config["sqlite"]["pdschema"] = config["app_base_path"] + config["sqlite"]["pdschema"]
-
-    if not config["sqlite"]["psschema"].startswith('/'):
-        config["sqlite"]["psschema"] = config["app_base_path"] + config["sqlite"]["psschema"]
         
     if not config["cache"]["basedir_fcrepo_assets"].startswith('/'):
         config["cache"]["basedir_fcrepo_assets"] = config["app_base_path"] + config["cache"]["basedir_fcrepo_assets"]
@@ -156,9 +153,6 @@ if __name__ == "__main__":
         
     if not config["sqlite"]["pdschema"].startswith('/'):
         config["sqlite"]["pdschema"] = config["app_base_path"] + config["sqlite"]["pdschema"]
-        
-    if not config["sqlite"]["psschema"].startswith('/'):
-        config["sqlite"]["psschema"] = config["app_base_path"] + config["sqlite"]["psschema"]
         
     if not config["cache"]["basedir_fcrepo_assets"].startswith('/'):
         config["cache"]["basedir_fcrepo_assets"] = config["app_base_path"] + config["cache"]["basedir_fcrepo_assets"]

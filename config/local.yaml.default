@@ -21,7 +21,9 @@ mysql:
         pass: p
 
 sqlite: 
+    db: data/etagsdb.db
     schema: config/etagsdb.schema
+    pdschema: config/pdtable.schema
     
 netx:
     base: https://host

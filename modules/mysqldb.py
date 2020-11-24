@@ -63,6 +63,7 @@ class MySQLDB:
         cursor = conn.cursor()
         cursor.execute(sqlquery)
         id = cursor.lastrowid
+        conn.commit()
         cursor.close()
         conn.close()
         return id

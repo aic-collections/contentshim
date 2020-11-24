@@ -87,21 +87,8 @@ class Content:
         
         # Check if on netx file system first:
         cache_fs_path = self.config["cache"]["basedir_netx_assets"] + self.uuid_path
-        file_matches = glob.glob(cache_fs_path + "*")
-        if len(file_matches) > 0:
-            # Found as part of netx assets
-            cached_file_path = file_matches[0]
-            if '.' in cached_file_path:
-                self.extension = cached_file_path.split('.')[-1]
-                for key, value in self.content_type_extension_map.items():
-                    if value == self.extension:
-                        self.extension = value
-                        self.contenttype = key
-                        break
-                if self.extension == "":
-                    self.extension = "jp2"
-                    self.contenttype = "image/jp2"
-        else:
+        cached_file_path = self._try_file_match(cache_fs_path)
+        if cached_file_path == "Status404":
             # Did not find asset as part of netx filesystem path.
             # So we need to query the database to see if this identifier is from LPM Fedora.
             # If yes, then we get the NetX UUID and deliver the NETX path.
@@ -118,39 +105,15 @@ class Content:
             sqlquery = "SELECT * FROM " + tablename + " WHERE pa_lake_uuid='" + self.uuid + "' LIMIT 1;"
             results = db.query(sqlquery)
             if results != None:
+                # Found NetX Asset.  Look for it on system.
                 netx_uuid = results[0][3]
                 netx_uuid_path = path_from_hashuuid(netx_uuid)
                 cache_fs_path = self.config["cache"]["basedir_netx_assets"] + netx_uuid_path
-                file_matches = glob.glob(cache_fs_path + "*")
-                if len(file_matches) > 0:
-                    # Found as part of netx assets
-                    cached_file_path = file_matches[0]
-                    if '.' in cached_file_path:
-                        self.extension = cached_file_path.split('.')[-1]
-                        for key, value in self.content_type_extension_map.items():
-                            if value == self.extension:
-                                self.extension = value
-                                self.contenttype = key
-                                break
-                        if self.extension == "":
-                            self.extension = "jp2"
-                            self.contenttype = "image/jp2"
+                cached_file_path = self._try_file_match(cache_fs_path)
             else:
+                # Did NOT find NetX Asset.  Look for FCREPO Asset on system.
                 cache_fs_path = self.config["cache"]["basedir_fcrepo_assets"] + self.uuid_path
-                file_matches = glob.glob(cache_fs_path + "*")
-                if len(file_matches) > 0:
-                    # Found as part of netx assets
-                    cached_file_path = file_matches[0]
-                    if '.' in cached_file_path:
-                        self.extension = cached_file_path.split('.')[-1]
-                        for key, value in self.content_type_extension_map.items():
-                            if value == self.extension:
-                                self.extension = value
-                                self.contenttype = key
-                                break
-                        if self.extension == "":
-                            self.extension = "jp2"
-                            self.contenttype = "image/jp2"
+                cached_file_path = self._try_file_match(cache_fs_path)
         self.logger.debug("Returning filesystem location: {}".format(cached_file_path))
         return cached_file_path
 
@@ -163,6 +126,25 @@ class Content:
                     self.contenttype = key
                     break
         return
+
+
+    def _try_file_match(self, test_path):
+        cached_file_path = "Status404"
+        file_matches = glob.glob(test_path + "*")
+        if len(file_matches) > 0:
+            # Found as part of netx assets
+            cached_file_path = file_matches[0]
+            if '.' in cached_file_path:
+                self.extension = cached_file_path.split('.')[-1]
+                for key, value in self.content_type_extension_map.items():
+                    if value == self.extension:
+                        self.extension = value
+                        self.contenttype = key
+                        break
+                if self.extension == "":
+                    self.extension = "jp2"
+                    self.contenttype = "image/jp2"
+        return cached_file_path
 
 
     def _valid_uuid(self, fcrepo_id):
