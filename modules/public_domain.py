@@ -7,7 +7,7 @@ import requests
 from logging import getLogger
 
 from modules.db import DB
-from modules.filters import fcrepo_path_from_hash
+from modules.filters import path_from_hashuuid
 
 from flask import Response
 
@@ -27,13 +27,11 @@ class PublicDomain:
         self.config = config
         self.fcrepo_id = fcrepo_id
         self.session = requests.Session()
-        if "enviro" not in config:
-            self.session.proxies = {
-                "http": "http://sysprox.artic.edu:3128",
-                "https": "http://sysprox.artic.edu:3128",
-            }
+        if "proxies" in config:
+            self.session.proxies = config["proxies"]
+
         if self._valid_fcrepo_id(fcrepo_id):
-            self.dhurl = "http://aggregator-data.artic.edu/api/v1/artworks/search?cache=false&query[bool][should][][term][image_id]=" + self.fcrepo_id + "&query[bool][should][][term][alt_image_ids]=" + self.fcrepo_id + "&fields=is_public_domain,id,is_zoomable,max_zoom_window_size,api_link,title,artist_display"
+            self.dhurl = config["datahub_api"]["v1_base"] + "artworks/search?cache=false&query[bool][should][][term][image_id]=" + self.fcrepo_id + "&query[bool][should][][term][alt_image_ids]=" + self.fcrepo_id + "&fields=is_public_domain,id,is_zoomable,max_zoom_window_size,api_link,title,artist_display"
         self._db = DB(app, config["sqlite"]["db"])
         
         self.logger.debug("fcrepo_id is: {}".format(self.fcrepo_id))
@@ -122,7 +120,7 @@ class PublicDomain:
 
 
     def _content_in_fcrepo(self, fcrepo_id):
-        fcrepo_path = fcrepo_path_from_hash(fcrepo_id)
+        fcrepo_path = path_from_hashuuid(fcrepo_id)
         fcrepo_url = self.config["httpresolver"]["prefix"] + fcrepo_path + self.config["httpresolver"]["postfix"]
         fcrepo_hit = self.session.head(fcrepo_url)
         if fcrepo_hit.status_code == 200:
@@ -134,7 +132,7 @@ class PublicDomain:
         regex = re.compile('^[a-z0-9]{8}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{12}$', re.I)
         match = regex.match(fcrepo_id)
         if bool(match):
-            fcrepo_path = fcrepo_path_from_hash(fcrepo_id)
+            fcrepo_path = path_from_hashuuid(fcrepo_id)
             fcrepo_url = self.config["httpresolver"]["prefix"] + fcrepo_path + self.config["httpresolver"]["postfix"]
             fcrepo_hit = self.session.head(fcrepo_url)
             if fcrepo_hit.status_code == 200:
