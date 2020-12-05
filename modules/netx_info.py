@@ -29,6 +29,7 @@ class NetXInfo:
 
     
     def get_netx_info(self):
+        nx_objects = []
         db = MySQLDB(self.config["mysql"], "reader")
         extra = ''
         if 'extra' in self.config["mysql"]:
@@ -38,16 +39,8 @@ class NetXInfo:
         results = db.query(sqlquery)
         self.logger.debug("Results: {}".format(results))
         if results != None:
-            # Found NetX Asset.
-            nx_objects = []
             for r in results:
-                nxobj = {}
-                for n in range(0, len(self.fields)):
-                    if isinstance(r[n], datetime.datetime):
-                        nxobj[self.fields[n]] = r[n].isoformat()
-                    else:
-                        nxobj[self.fields[n]] = r[n]
-                nx_objects.append(nxobj)
+                nx_objects.append( self._format_row_to_obj(r) )
             return nx_objects
         else:
             # Search using the LAKE UUID
@@ -55,16 +48,10 @@ class NetXInfo:
             results = db.query(sqlquery)
             self.logger.debug("Results: {}".format(results))
             if results != None:
-                # Found NetX Asset using LAKE UUID.
-                nx_objects = []
                 for r in results:
-                    nxobj = { "comment": "Found using LAKE UUID" }
-                    for n in range(0, len(self.fields)):
-                        if isinstance(r[n], datetime.datetime):
-                            nxobj[self.fields[n]] = r[n].isoformat()
-                        else:
-                            nxobj[self.fields[n]] = r[n]
-                    nx_objects.append(nxobj)
+                    nxobj = self._format_row_to_obj(r)
+                    nxobj["comment"] = "Found using LAKE UUID"
+                    nx_objects.append( nxobj )
                 return nx_objects
             else:
                 return "Status404"
@@ -77,7 +64,7 @@ class NetXInfo:
             if 'extra' in self.config["mysql"]:
                 extra = self.config["mysql"]["extra"]
             tablename = "pub_assets" + extra
-            sqlquery = "SELECT * FROM " + tablename + " WHERE pa_netx_published=0 AND pa_dbmodified > '" + since + "';"
+            sqlquery = "SELECT * FROM " + tablename + " WHERE pa_netx_published=1 AND pa_dbmodified > '" + since + "';"
             results = db.query(sqlquery)
             if results != None:
                 for r in results:
@@ -91,8 +78,8 @@ class NetXInfo:
         for n in range(0, len(self.fields)):
             if self.fields[n] not in exclude_fields:
                 if isinstance(row[n], datetime.datetime):
-                    nxobj[self.fields[n]] = row[n].isoformat()
+                    nxobj[self.fields[n].replace('pa_', '')] = row[n].isoformat()
                 else:
-                    nxobj[self.fields[n]] = row[n]
+                    nxobj[self.fields[n].replace('pa_', '')] = row[n]
         return nxobj
 
