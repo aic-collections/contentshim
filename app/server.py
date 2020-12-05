@@ -24,6 +24,7 @@ from modules.db import DB
 from modules.mysqldb import MySQLDB
 from modules.content import Content
 from modules.public_domain import PublicDomain
+from modules.netx_info import NetXInfo
 
 app = Flask(__name__)
 config = None
@@ -81,6 +82,41 @@ def get_pd_status(uuid, delim=''):
             return (response, 503)
         else:
             response = Response(pdstatus)
+            response.headers['Content-type'] = "application/json"
+            return (response, 200)
+            
+@app.route("/<any(assets, images):delim>/<uuid>/netx_info")
+def get_netx_info(uuid, delim=''):
+    with app.app_context():
+        nxi = NetXInfo(app, config, uuid)
+        nxinfo = nxi.get_netx_info()
+        if nxinfo == "Status404":
+            response = Response("404 Not Found")
+            response.headers['Content-type'] = "text/plain"
+            return (response, 404)
+        elif nxinfo == "Status503":
+            response = Response("503 - Service Temporarily Unavailable.  Datahub issue?")
+            response.headers['Content-type'] = "text/plain"
+            return (response, 503)
+        else:
+            response = Response(json.dumps(nxinfo, indent=4))
+            response.headers['Content-type'] = "application/json"
+            return (response, 200)
+            
+@app.route("/<any(assets, images):delim>/unpublished_assets")
+def get_unpublished_assets(delim=''):
+    since = request.args.get('since')
+    if since == None:
+        return ("No Since Date Set", 400)
+    with app.app_context():
+        nxi = NetXInfo(app, config, "")
+        nxinfo = nxi.get_unpublished_assets(since)
+        if nxinfo == "Status503":
+            response = Response("503 - Service Temporarily Unavailable.  Database issue?")
+            response.headers['Content-type'] = "text/plain"
+            return (response, 503)
+        else:
+            response = Response(json.dumps(nxinfo, indent=4))
             response.headers['Content-type'] = "application/json"
             return (response, 200)
             
