@@ -64,7 +64,7 @@ class NetXInfo:
             if 'extra' in self.config["mysql"]:
                 extra = self.config["mysql"]["extra"]
             tablename = "pub_assets" + extra
-            sqlquery = "SELECT * FROM " + tablename + " WHERE pa_netx_published=1 AND pa_dbmodified > '" + since + "';"
+            sqlquery = "SELECT * FROM " + tablename + " WHERE pa_netx_published=0 AND pa_dbmodified > '" + since + "';"
             results = db.query(sqlquery)
             if results != None:
                 for r in results:
