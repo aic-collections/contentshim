@@ -114,8 +114,126 @@ class Content:
                 # Did NOT find NetX Asset.  Look for FCREPO Asset on system.
                 cache_fs_path = self.config["cache"]["basedir_fcrepo_assets"] + self.uuid_path
                 cached_file_path = self._try_file_match(cache_fs_path)
+                if cached_file_path == "Status404":
+                    cached_file_path = self._check_lpm_fedora_for_path()
         self.logger.debug("Returning filesystem location: {}".format(cached_file_path))
         return cached_file_path
+        
+    
+    # Added Back
+    def _check_lpm_fedora_for_path(self):
+        self.logger.debug("Checking LPM Fedora for: {}".format(self.uuid))
+
+        self.session = requests.Session()
+        self.lpmurl = self.config["httpresolver"]["prefix"] + self.uuid_path + self.config["httpresolver"]["postfix"]
+        self._db = DB(self.app, self.config["sqlite"]["db"])
+        
+        headers = {}
+        etag = self._etag_get()
+        self.logger.debug("Etag is: {}".format(etag))
+        if etag:
+            headers["If-None-Match"] = etag
+
+        cache_req = self.session.head(self.lpmurl, headers=headers)
+        self.logger.debug('ETag cache response code: {}'.format(cache_req.status_code))
+        self.logger.debug("cache_req headers: {}".format(cache_req.headers))
+        
+        if cache_req.status_code == 304:
+            self.logger.debug('LPM Fedora Status was 304.  Looking for cached file.')
+            cache_fs_path = self.config["cache"]["basedir_fcrepo_assets"] + self.uuid_path
+            
+            cached_file_path = _try_file_match(cache_fs_path)
+            if cached_file_path == "Status404":
+                # Didn't find LPM Fedora file on system.  Fetch and store.
+                cached_file_path = self._copy_to_cache(cache_req.headers)
+        elif cache_req.status_code == 404:
+            cached_file_path = "Status404"
+        elif cache_req.status_code == 503:
+            cached_file_path = "Status503"
+        else:
+            cached_file_path = self._copy_to_cache(cache_req.headers)
+
+        return cached_file_path
+
+
+    # Added Back
+    def _copy_to_cache(self, cache_req_headers):
+        if "content-type" in cache_req_headers:
+            self._set_extension_contenttype(cache_req_headers)
+        else:
+            contenthead = self.session.head(self.url)
+            self._set_extension_contenttype(contenthead.headers)
+            
+        self.logger.debug("Copying to LPM Fedora cache.")
+        ident = self.uuid
+        # Will take:
+        #   /86/bf/14/11/86bf1411-6180-8103-52a1-e4d84f478ec1
+        # and return:
+        #   /86/bf/14/11/
+        cache_dir = self.config["cache"]["basedir_fcrepo_assets"] + self.uuid_path.replace(self.uuid, '')
+        self.logger.debug("Cache dir is: {}".format(cache_dir))
+        self._create_cache_dir(cache_dir)
+
+        cache_fs_path = self.config["cache"]["basedir_fcrepo_assets"] + self.uuid_path + "." + self.extension
+        if os.path.isfile(cache_fs_path):
+            os.unlink(cache_fs_path)
+        
+        # Mindful of this.  Requests.Session may require non-streamed content
+        # or the connection is not released back in to the pool.
+        with self.session.get(self.url, stream=True) as r:
+            with open(cache_fs_path, 'wb') as f:
+                # Increase the chunk size.  Fewer disk writes.
+                for chunk in r.iter_content(10240):
+                    f.write(chunk)
+            # Store ETags.
+            self._etag_put(r.headers['etag'])
+
+        '''
+        # This code didn't seem to improve matters and, in fact, the memory hit 
+        # may have resulted in diminished service.
+        # Curious about fewer disk writes.
+        r = self.session.get(self.url)
+        with open(cache_fs_path, 'wb') as f: 
+            f.write(r.content)
+        '''
+        # Store ETags.
+        # self._etag_put(r.headers['etag'])
+
+        return cache_fs_path
+        
+        
+    # Added Back
+    def _create_cache_dir(self, cache_dir):
+        try:
+            os.makedirs(cache_dir)
+        except OSError as ose:
+            if ose.errno == errno.EEXIST:
+                pass
+            else:
+                raise
+            
+    # Added Back
+    def _etag_get(self):
+        sql_query = "SELECT etag FROM etags WHERE fcrepoid = '" + self.fcrepo_id + "';"
+        etags = self._db.query(sql_query)
+        if etags != None:
+            self.etag_exists = True
+            return '"' + str(etags[0][0]) + '"'
+        else:
+            return None
+
+    # Added Back
+    def _etag_put(self, etag):
+        etag = etag.split(',')[0]
+        etag = etag.replace('"', '')
+        self.logger.debug("Etag for inserting into DB: {}".format(etag))
+        if self.etag_exists:
+            sql_query = "UPDATE etags SET etag='" + etag + "' WHERE fcrepoid = '" + self.fcrepo_id + "';"
+            etags = self._db.update(sql_query)
+        else:
+            sql_query = "INSERT INTO etags (fcrepoid, etag) VALUES ('" + self.fcrepo_id + "', '" + etag + "')" 
+            dbid = self._db.update(sql_query)
+        return True
 
 
     def _set_extension_contenttype(self, cache_req_headers):
@@ -126,7 +244,6 @@ class Content:
                     self.contenttype = key
                     break
         return
-
 
     def _try_file_match(self, test_path):
         cached_file_path = "Status404"
