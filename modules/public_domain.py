@@ -6,6 +6,7 @@ import requests
 
 from logging import getLogger
 
+from modules.mysqldb import MySQLDB
 from modules.db import DB
 from modules.filters import path_from_hashuuid
 
@@ -81,10 +82,20 @@ class PublicDomain:
             if str(pd_desgs[0][0]) == "1":
                 self.is_public_domain = True
         else:
-            # Must look it up in the datahub, but first we'll make sure it is in lakemichigan
-            if self._content_in_fcrepo(self.fcrepo_id):
-                self.logger.debug("No DB entry found for {}.".format(self.fcrepo_id))
+            # Must look it up in the datahub, but first we'll make sure it is a known netx asset
+            db = MySQLDB(self.config["mysql"], "reader")
+            extra = ''
+            if 'extra' in self.config["mysql"]:
+                extra = self.config["mysql"]["extra"]
+            tablename = "pub_assets" + extra
+            sqlquery = "SELECT * FROM " + tablename + " WHERE pa_netx_uuid='" + self.fcrepo_id + "' LIMIT 1;"
+            self.logger.debug("Querying Netx Asset DB: {}".format(sqlquery))
+            results = db.query(sqlquery)
+            self.logger.debug("Netx Asset DB query result: {}".format(results))
+            if results != None:
+                self.logger.debug("DB entry found for {}.".format(self.fcrepo_id))
                 self.logger.debug("Checking datahub for {}.".format(self.fcrepo_id))
+                self.logger.debug("Checking datahub url {}.".format(self.dhurl))
                 try:
                     dhresponse = self.session.get(self.dhurl)
                     dhdata = dhresponse.json()
@@ -127,15 +138,20 @@ class PublicDomain:
             return True
         return False
 
-
+    # 4eddcf49-3efd-d993-fb1a-75d7e7d5b5a1
     def _valid_fcrepo_id(self, fcrepo_id):
         regex = re.compile('^[a-z0-9]{8}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{12}$', re.I)
         match = regex.match(fcrepo_id)
         if bool(match):
-            fcrepo_path = path_from_hashuuid(fcrepo_id)
-            fcrepo_url = self.config["httpresolver"]["prefix"] + fcrepo_path + self.config["httpresolver"]["postfix"]
-            fcrepo_hit = self.session.head(fcrepo_url)
-            if fcrepo_hit.status_code == 200:
+            db = MySQLDB(self.config["mysql"], "reader")
+            extra = ''
+            if 'extra' in self.config["mysql"]:
+                extra = self.config["mysql"]["extra"]
+            tablename = "pub_assets" + extra
+            sqlquery = "SELECT * FROM " + tablename + " WHERE pa_netx_uuid='" + fcrepo_id + "' LIMIT 1;"
+            results = db.query(sqlquery)
+            if results != None:
+                # Got hit
                 return True
         return False
         
