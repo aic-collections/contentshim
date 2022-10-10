@@ -96,6 +96,7 @@ class PublicDomain:
                 self.logger.debug("DB entry found for {}.".format(self.fcrepo_id))
                 self.logger.debug("Checking datahub for {}.".format(self.fcrepo_id))
                 self.logger.debug("Checking datahub url {}.".format(self.dhurl))
+    
                 try:
                     dhresponse = self.session.get(self.dhurl)
                     dhdata = dhresponse.json()
