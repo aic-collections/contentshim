@@ -26,6 +26,8 @@ from modules.content import Content
 from modules.public_domain import PublicDomain
 from modules.netx_info import NetXInfo
 
+from modules.filters import path_from_hashuuid
+
 app = Flask(__name__)
 config = None
 
@@ -150,6 +152,20 @@ def pd_statuses(delim=''):
         else:
             return ("Results was None?", 500)
 
+@app.route("/<any(assets, images):delim>/<uuid>/lpm_info")
+def contact_fcrepo(uuid, delim=''):
+    h = {"Accept": "application/ld+json"}
+    sess = requests.Session()
+    uuid_path = path_from_hashuuid(uuid)
+    lpmurl = config["httpresolver"]["prefix"] + uuid_path + config["httpresolver"]["postfix"] + "/fcr:metadata"
+    r = sess.get(lpmurl, headers=h)
+    if r.status_code == 200:
+        response = Response(json.dumps(r.json(), indent=4))
+        response.headers['Content-type'] = "application/ld+json"
+        return (response, 200)
+    else:
+        response = Response(r.raw)
+        return (response, r.status_code)
 
 def load_app(configpath):
     global config
